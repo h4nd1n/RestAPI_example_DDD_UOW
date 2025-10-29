@@ -1,0 +1,51 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_HOST: postgres
+    ports: [ "15432:5432" ]
+    restart: unless-stopped
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  migrate:
+    build: .
+    env_file: .env
+    environment:
+      RUN_MIGRATIONS: True
+      DB_HOST: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # ВАЖНО: запускаем только миграции и выходим
+    command: bash -c "if [ \"$RUN_MIGRATIONS\" = 'True' ]; then alembic upgrade head; else echo 'Skipping migrations...'; fi"
+    restart: "no"
+
+  qa_service:
+    build: .
+    command: python -m src.main
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+    ports: [ "8080:8080" ]
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -fsS http://localhost:8080/api/health || exit 1" ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
+volumes:
+  pg-data:
