@@ -4,9 +4,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
 
-from src.api.v1.deps import get_answers_service
+from src.api.v1.deps import get_answers_service, get_unit_of_work
 from src.schemas.answers_schema import AnswerCreateSchema
 from src.services.answers_service import AnswersService
+from src.utils.unitofwork import UnitOfWork
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["answers"])
@@ -20,9 +21,12 @@ async def create_answer_endpoint(
     question_id: int,
     answer: AnswerCreateSchema,
     answers_service: Annotated[AnswersService, Depends(get_answers_service)],
+    unit_of_work: Annotated[UnitOfWork, Depends(get_unit_of_work)],
 ):
     try:
-        return await answers_service.add_answer(answer=answer, question_id=question_id)
+        return await answers_service.add_answer(
+            answer=answer, question_id=question_id, uow=unit_of_work
+        )
     except IntegrityError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Question not found"
@@ -62,9 +66,12 @@ async def get_answer_endpoint(
 async def delete_answer_endpoint(
     answer_id: int,
     answers_service: Annotated[AnswersService, Depends(get_answers_service)],
+    unit_of_work: Annotated[UnitOfWork, Depends(get_unit_of_work)],
 ):
     try:
-        deleted = await answers_service.delete_answer(answer_id=answer_id)
+        deleted = await answers_service.delete_answer(
+            answer_id=answer_id, uow=unit_of_work
+        )
     except Exception as e:
         logger.exception(f"Unexpected error {e}", exc_info=True)
         raise HTTPException(

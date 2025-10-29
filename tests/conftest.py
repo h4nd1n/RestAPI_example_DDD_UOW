@@ -62,6 +62,24 @@ def questions_repo():
     return FakeRepo()
 
 
+class FakeUoW:
+    def __init__(self, answers_repo, questions_repo):
+        self.answers_repo = answers_repo
+        self.questions_repo = questions_repo
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *a):
+        return False
+
+    async def commit(self):
+        pass
+
+    async def rollback(self):
+        pass
+
+
 @pytest.fixture
 def override_services(app, answers_repo, questions_repo):
     async def _answers_service_override():
@@ -70,6 +88,10 @@ def override_services(app, answers_repo, questions_repo):
     async def _questions_service_override():
         return QuestionsService(questions_repo)
 
+    async def _uow_override():
+        return FakeUoW(answers_repo, questions_repo)
+
+    app.dependency_overrides[deps.get_unit_of_work] = _uow_override
     app.dependency_overrides[deps.get_answers_service] = _answers_service_override
     app.dependency_overrides[deps.get_questions_service] = _questions_service_override
     yield

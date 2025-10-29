@@ -3,11 +3,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from src.api.v1.deps import get_questions_service
+from src.api.v1.deps import get_questions_service, get_unit_of_work
 from src.schemas.question_schema import (
     QuestionCreateSchema,
 )
 from src.services.questions_service import QuestionsService
+from src.utils.unitofwork import IUnitOfWork
 
 logger = logging.getLogger(__name__)
 
@@ -32,9 +33,10 @@ async def get_questions_endpoint(
 async def create_question_endpoint(
     question: QuestionCreateSchema,
     questions_service: Annotated[QuestionsService, Depends(get_questions_service)],
+    unit_of_work: Annotated[IUnitOfWork, Depends(get_unit_of_work)],
 ):
     try:
-        return await questions_service.add_question(question)
+        return await questions_service.add_question(question, uow=unit_of_work)
     except Exception as e:
         logger.exception(f"Unexpected error {e}", exc_info=True)
         raise HTTPException(
@@ -68,9 +70,10 @@ async def get_question_with_answers_endpoint(
 async def delete_question_endpoint(
     question_id: int,
     questions_service: Annotated[QuestionsService, Depends(get_questions_service)],
+    unit_of_work: Annotated[IUnitOfWork, Depends(get_unit_of_work)],
 ):
     try:
-        deleted = await questions_service.delete_question(question_id)
+        deleted = await questions_service.delete_question(question_id, uow=unit_of_work)
     except Exception as e:
         logger.exception(f"Unexpected error {e}", exc_info=True)
         raise HTTPException(
