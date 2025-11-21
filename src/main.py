@@ -5,6 +5,7 @@ import uvicorn
 from fastapi import FastAPI
 
 from src.api import api_router
+from src.api.exception_handlers import setup_exception_handlers
 from src.core.config import Config, load_config
 from src.core.logging import setup_logging
 from src.db.database import Database
@@ -20,7 +21,6 @@ async def lifespan(app: FastAPI):
     config: Config = load_config(path=".env")
     db = Database(db_config=config.db, echo=False)
     app.state.db = db
-
     try:
         yield
     finally:
@@ -32,6 +32,7 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     app = FastAPI(title="Q&A API", lifespan=lifespan)
     app.include_router(api_router, tags=["Q&A API"])
+    setup_exception_handlers(app)
     return app
 
 

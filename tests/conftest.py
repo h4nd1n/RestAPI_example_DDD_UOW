@@ -3,6 +3,7 @@ import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
+from src.api.exception_handlers import setup_exception_handlers
 from src.api.v1 import (
     answers as answers_router_module,
     deps,
@@ -49,6 +50,7 @@ def app():
     app = FastAPI()
     app.include_router(questions_router_module.router)
     app.include_router(answers_router_module.router)
+    setup_exception_handlers(app)
     return app
 
 
@@ -82,16 +84,36 @@ class FakeUoW:
 
 @pytest.fixture
 def override_services(app, answers_repo, questions_repo):
+    class TestUnitOfWork:
+        def __init__(self, answers_repo, questions_repo):
+            self.answers_repo = answers_repo
+            self.questions_repo = questions_repo
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False  # не подавляем исключения
+
+        async def commit(self):
+            pass
+
+        async def rollback(self):
+            pass
+
+    def uow_factory() -> TestUnitOfWork:
+        return TestUnitOfWork(answers_repo, questions_repo)
+
+    def _uow_override():
+        return uow_factory
+
     async def _answers_service_override():
-        return AnswersService(answers_repo)
+        return AnswersService(uow_factory=uow_factory)
 
     async def _questions_service_override():
-        return QuestionsService(questions_repo)
+        return QuestionsService(uow_factory=uow_factory)
 
-    async def _uow_override():
-        return FakeUoW(answers_repo, questions_repo)
-
-    app.dependency_overrides[deps.get_unit_of_work] = _uow_override
+    app.dependency_overrides[deps.get_uow_factory] = _uow_override
     app.dependency_overrides[deps.get_answers_service] = _answers_service_override
     app.dependency_overrides[deps.get_questions_service] = _questions_service_override
     yield
@@ -100,7 +122,7 @@ def override_services(app, answers_repo, questions_repo):
 
 @pytest_asyncio.fixture
 async def client(app, override_services):
-    transport = ASGITransport(app=app)
+    transport = ASGITransport(app=app, raise_app_exceptions=False)
     async with AsyncClient(transport=transport, base_url="http://testserver") as c:
         yield c
 

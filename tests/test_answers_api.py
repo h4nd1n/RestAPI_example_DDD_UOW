@@ -3,6 +3,8 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy.exc import IntegrityError
 
+from src.db.db_exceptions import map_integrity_error
+
 
 @pytest.mark.asyncio
 async def test_create_answer_201(client, answers_repo, valid_answer_payload):
@@ -27,9 +29,11 @@ async def test_create_answer_201(client, answers_repo, valid_answer_payload):
 async def test_create_answer_404_on_integrity_error(
     client, answers_repo, valid_answer_payload
 ):
-    async def _add_one(data: dict):
-        # имитация внешнего ключа на несуществующий вопрос
-        raise IntegrityError("insert", "params", "fk violation")
+    async def _add_one(data: dict) -> int:
+        try:
+            raise IntegrityError("insert", "params", "violates foreign key constraint")
+        except IntegrityError as e:
+            raise map_integrity_error(e) from e
 
     answers_repo._add_one = _add_one
 

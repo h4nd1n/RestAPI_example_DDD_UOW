@@ -1,7 +1,10 @@
 from abc import ABC, abstractmethod
 
-from sqlalchemy import delete, insert, select
+from sqlalchemy import delete, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
+
+from src.db.db_exceptions import map_integrity_error
 
 
 class AbstractRepository(ABC):
@@ -29,9 +32,13 @@ class SqlAlchemyRepository(AbstractRepository):
         self.session = session
 
     async def add_one(self, data: dict) -> int:
-        stmt = insert(self.model).values(**data).returning(self.model.id)
-        res = await self.session.execute(stmt)
-        return res.scalar_one()
+        try:
+            obj = self.model(**data)
+            self.session.add(obj)
+            await self.session.flush()
+            return obj.id
+        except IntegrityError as e:
+            raise map_integrity_error(e) from e
 
     async def del_one(self, object_id: int) -> bool:
         stmt = delete(self.model).where(self.model.id == object_id)
