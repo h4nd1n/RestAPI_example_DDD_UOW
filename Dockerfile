@@ -1,12 +1,14 @@
 FROM python:3.12-bullseye
 
-# Устанавливаем рабочую директорию
-WORKDIR /usr/src/app/
+WORKDIR /app
 
-# Копируем и устанавливаем зависимости
-COPY requirements.txt .
-RUN pip install --upgrade pip
-RUN pip install --no-cache-dir -r requirements.txt
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
+    && ln -s /root/.local/bin/uv /usr/local/bin/uv
 
-# Копируем весь проект
+COPY pyproject.toml uv.lock* ./
+
+RUN uv sync --frozen --no-cache
+
 COPY . .
+
+ENV PATH="/app/.venv/bin:$PATH"
