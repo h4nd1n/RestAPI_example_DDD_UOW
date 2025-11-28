@@ -31,6 +31,16 @@ class SqlAlchemyRepository(AbstractRepository):
     def __init__(self, session):
         self.session = session
 
+    # хуки
+    @property
+    def _get_find_one_options(self) -> tuple:
+        return ()
+
+    @property
+    def _get_find_all_options(self) -> tuple:
+        return ()
+
+    # методы
     async def add_one(self, data: dict) -> int:
         try:
             obj = self.model(**data)
@@ -47,33 +57,27 @@ class SqlAlchemyRepository(AbstractRepository):
         return deleted > 0
 
     async def find_one(self, object_id: int):
-        stmt = select(self.model).where(self.model.id == object_id)
-        res = await self.session.scalar(stmt)
-        if not res:
-            return res
-        return res.to_read_model()
-
-    async def find_all(self):
-        stmt = select(self.model)
-        res = await self.session.execute(stmt)
-        res = [row[0].to_read_model() for row in res.all()]
-        return res
-
-
-class SqlAlchemyQuestionsRepository(SqlAlchemyRepository):
-    async def find_all(self):
-        stmt = select(self.model).options(selectinload(self.model.answers))
-        res = await self.session.execute(stmt)
-        res = [row[0].to_read_model() for row in res.all()]
-        return res
-
-    async def find_one(self, object_id: int):
         stmt = (
             select(self.model)
-            .options(selectinload(self.model.answers))
+            .options(*self._get_find_one_options)
             .where(self.model.id == object_id)
         )
         res = await self.session.scalar(stmt)
         if not res:
             return res
         return res.to_read_model()
+
+    async def find_all(self):
+        stmt = select(self.model).options(*self._get_find_all_options)
+        res = await self.session.execute(stmt)
+        return [row[0].to_read_model() for row in res.all()]
+
+
+class SqlAlchemyQuestionsRepository(SqlAlchemyRepository):
+    @property
+    def _get_find_one_options(self) -> tuple:
+        return (selectinload(self.model.answers),)
+
+    @property
+    def _get_find_all_options(self) -> tuple:
+        return (selectinload(self.model.answers),)
