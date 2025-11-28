@@ -23,7 +23,7 @@ class IUnitOfWork(ABC):
     async def rollback(self): ...
 
 
-class UnitOfWork:
+class UnitOfWork(IUnitOfWork):
     def __init__(self, async_session_maker):
         self.session_factory = async_session_maker
         self.session: AsyncSession | None = None
@@ -31,7 +31,7 @@ class UnitOfWork:
         self.answers_repo: AnswersRepository | None = None
         self.questions_repo: QuestionsRepository | None = None
 
-    async def __aenter__(self) -> "UnitOfWork":
+    async def __aenter__(self) -> "IUnitOfWork":
         self.session = self.session_factory()
         # создаём репозитории на этой сессии
         self.answers_repo = AnswersRepository(self.session)
