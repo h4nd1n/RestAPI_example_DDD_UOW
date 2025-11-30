@@ -3,6 +3,7 @@ import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
+from src.api import health as health_router_module
 from src.api.exception_handlers import setup_exception_handlers
 from src.api.v1 import (
     answers as answers_router_module,
@@ -48,6 +49,7 @@ class FakeRepo(AbstractRepository):
 @pytest.fixture
 def app():
     app = FastAPI()
+    app.include_router(health_router_module.router, prefix="/health")
     app.include_router(questions_router_module.router)
     app.include_router(answers_router_module.router)
     setup_exception_handlers(app)
