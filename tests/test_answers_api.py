@@ -19,7 +19,7 @@ async def test_create_answer_201(client, answers_repo, valid_answer_payload):
 
     question_id = 123
     r = await client.post(
-        f"/questions/{question_id}/answers", json=valid_answer_payload
+        f"/api/v1/questions/{question_id}/answers", json=valid_answer_payload
     )
     assert r.status_code == 201
     assert r.json() == 555
@@ -37,7 +37,7 @@ async def test_create_answer_404_on_integrity_error(
 
     answers_repo._add_one = _add_one
 
-    r = await client.post("/questions/999/answers", json=valid_answer_payload)
+    r = await client.post("/api/v1/questions/999/answers", json=valid_answer_payload)
     assert r.status_code == 404
     assert r.json()["detail"] == "Question not found"
 
@@ -51,7 +51,7 @@ async def test_create_answer_500_on_unexpected(
 
     answers_repo._add_one = _boom
 
-    r = await client.post("/questions/1/answers", json=valid_answer_payload)
+    r = await client.post("/api/v1/questions/1/answers", json=valid_answer_payload)
     assert r.status_code == 500
     assert r.json()["detail"] == "Internal Server Error"
 
@@ -69,7 +69,7 @@ async def test_get_answer_200(client, answers_repo):
 
     answers_repo._find_one = _find_one
 
-    r = await client.get("/answers/7")
+    r = await client.get("/api/v1/answers/7")
     assert r.status_code == 200
     assert r.json()["id"] == 7
 
@@ -81,7 +81,7 @@ async def test_get_answer_404(client, answers_repo):
 
     answers_repo._find_one = _find_one
 
-    r = await client.get("/answers/777")
+    r = await client.get("/api/v1/answers/777")
     assert r.status_code == 404
     assert r.json()["detail"] == "Answer not found"
 
@@ -93,7 +93,7 @@ async def test_get_answer_500(client, answers_repo):
 
     answers_repo._find_one = _boom
 
-    r = await client.get("/answers/1")
+    r = await client.get("/api/v1/answers/1")
     assert r.status_code == 500
     assert r.json()["detail"] == "Internal Server Error"
 
@@ -105,7 +105,7 @@ async def test_delete_answer_204(client, answers_repo):
 
     answers_repo._del_one = _del
 
-    r = await client.delete("/answers/5")
+    r = await client.delete("/api/v1/answers/5")
     assert r.status_code == 204
     assert r.text == ""
 
@@ -117,7 +117,7 @@ async def test_delete_answer_404(client, answers_repo):
 
     answers_repo._del_one = _del
 
-    r = await client.delete("/answers/5")
+    r = await client.delete("/api/v1/answers/5")
     assert r.status_code == 404
     assert r.json()["detail"] == "Answer not found"
 
@@ -129,6 +129,6 @@ async def test_delete_answer_500_on_exception(client, answers_repo):
 
     answers_repo._del_one = _boom
 
-    r = await client.delete("/answers/5")
+    r = await client.delete("/api/v1/answers/5")
     assert r.status_code == 500
     assert r.json()["detail"] == "Internal Server Error"

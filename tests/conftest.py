@@ -1,18 +1,19 @@
+from collections.abc import Callable
+
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from src.api import health as health_router_module
+from src.api import api_router
 from src.api.exception_handlers import setup_exception_handlers
 from src.api.v1 import (
-    answers as answers_router_module,
     deps,
-    questions as questions_router_module,
 )
 from src.services.answers_service import AnswersService
 from src.services.questions_service import QuestionsService
 from src.utils.repository import AbstractRepository
+from src.utils.unitofwork import IUnitOfWork
 
 # ===== Фейковые репозитории (минимум, что нужно для тестов) ============
 
@@ -46,26 +47,6 @@ class FakeRepo(AbstractRepository):
         return await self._find_all()
 
 
-@pytest.fixture
-def app():
-    app = FastAPI()
-    app.include_router(health_router_module.router, prefix="/health")
-    app.include_router(questions_router_module.router)
-    app.include_router(answers_router_module.router)
-    setup_exception_handlers(app)
-    return app
-
-
-@pytest.fixture
-def answers_repo():
-    return FakeRepo()
-
-
-@pytest.fixture
-def questions_repo():
-    return FakeRepo()
-
-
 class FakeUoW:
     def __init__(self, answers_repo, questions_repo):
         self.answers_repo = answers_repo
@@ -85,41 +66,58 @@ class FakeUoW:
 
 
 @pytest.fixture
+def answers_repo():
+    return FakeRepo()
+
+
+@pytest.fixture
+def questions_repo():
+    return FakeRepo()
+
+
+@pytest.fixture
+def app(questions_repo, answers_repo):
+    app = FastAPI()
+    app.include_router(api_router)
+    setup_exception_handlers(app)
+
+    return app
+
+
+@pytest.fixture
 def override_services(app, answers_repo, questions_repo):
-    class TestUnitOfWork:
-        def __init__(self, answers_repo, questions_repo):
-            self.answers_repo = answers_repo
-            self.questions_repo = questions_repo
+    def override_uow_factory() -> Callable[[], IUnitOfWork]:
+        def _factory() -> IUnitOfWork:
+            return FakeUoW(questions_repo=questions_repo, answers_repo=answers_repo)
 
-        async def __aenter__(self):
-            return self
+        return _factory
 
-        async def __aexit__(self, exc_type, exc, tb):
-            return False  # не подавляем исключения
+    app.dependency_overrides[deps.get_uow_factory] = override_uow_factory
 
-        async def commit(self):
-            pass
-
-        async def rollback(self):
-            pass
-
-    def uow_factory() -> TestUnitOfWork:
-        return TestUnitOfWork(answers_repo, questions_repo)
-
-    def _uow_override():
-        return uow_factory
-
-    async def _answers_service_override():
-        return AnswersService(uow_factory=uow_factory)
-
-    async def _questions_service_override():
-        return QuestionsService(uow_factory=uow_factory)
-
-    app.dependency_overrides[deps.get_uow_factory] = _uow_override
-    app.dependency_overrides[deps.get_answers_service] = _answers_service_override
-    app.dependency_overrides[deps.get_questions_service] = _questions_service_override
     yield
+
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def uow_factory(answers_repo, questions_repo):
+    def _factory() -> IUnitOfWork:
+        return FakeUoW(
+            answers_repo=answers_repo,
+            questions_repo=questions_repo,
+        )
+
+    return _factory
+
+
+@pytest.fixture
+def answers_service(uow_factory) -> AnswersService:
+    return AnswersService(uow_factory=uow_factory)
+
+
+@pytest.fixture
+def questions_service(uow_factory) -> QuestionsService:
+    return QuestionsService(uow_factory=uow_factory)
 
 
 @pytest_asyncio.fixture

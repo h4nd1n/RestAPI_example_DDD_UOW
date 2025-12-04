@@ -13,7 +13,7 @@ async def test_list_questions_200(client, questions_repo):
 
     questions_repo._find_all = _find_all
 
-    r = await client.get("/questions")
+    r = await client.get("/api/v1/questions")
     assert r.status_code == 200
     body = r.json()
     assert isinstance(body, list)
@@ -27,7 +27,7 @@ async def test_list_questions_500(client, questions_repo):
 
     questions_repo._find_all = _boom
 
-    r = await client.get("/questions")
+    r = await client.get("/api/v1/questions")
     assert r.status_code == 500
     assert r.json()["detail"] == "Internal Server Error"
 
@@ -41,7 +41,7 @@ async def test_create_question_201(client, questions_repo, valid_question_payloa
 
     questions_repo._add_one = _add_one
 
-    r = await client.post("/questions", json=valid_question_payload)
+    r = await client.post("/api/v1/questions", json=valid_question_payload)
     assert r.status_code == 201
     assert r.json() == 123  # эндпойнт возвращает int, не объект
 
@@ -53,7 +53,7 @@ async def test_create_question_500(client, questions_repo, valid_question_payloa
 
     questions_repo._add_one = _boom
 
-    r = await client.post("/questions", json=valid_question_payload)
+    r = await client.post("/api/v1/questions", json=valid_question_payload)
     assert r.status_code == 500
     assert r.json()["detail"] == "Internal Server Error"
 
@@ -70,7 +70,7 @@ async def test_get_question_with_answers_200(client, questions_repo):
 
     questions_repo._find_one = _find_one
 
-    r = await client.get("/questions/42")
+    r = await client.get("/api/v1/questions/42")
     assert r.status_code == 200
     assert r.json()["id"] == 42
 
@@ -82,7 +82,7 @@ async def test_get_question_with_answers_404(client, questions_repo):
 
     questions_repo._find_one = _find_one
 
-    r = await client.get("/questions/9999")
+    r = await client.get("/api/v1/questions/9999")
     assert r.status_code == 404
     assert r.json()["detail"] == "Question not found"
 
@@ -94,7 +94,7 @@ async def test_get_question_with_answers_500(client, questions_repo):
 
     questions_repo._find_one = _boom
 
-    r = await client.get("/questions/1")
+    r = await client.get("/api/v1/questions/1")
     assert r.status_code == 500
     assert r.json()["detail"] == "Internal Server Error"
 
@@ -106,7 +106,7 @@ async def test_delete_question_204(client, questions_repo):
 
     questions_repo._del_one = _del_one
 
-    r = await client.delete("/questions/10")
+    r = await client.delete("/api/v1/questions/10")
     assert r.status_code == 204
     assert r.text == ""
 
@@ -118,7 +118,7 @@ async def test_delete_question_404(client, questions_repo):
 
     questions_repo._del_one = _del_one
 
-    r = await client.delete("/questions/10")
+    r = await client.delete("/api/v1/questions/10")
     assert r.status_code == 404
     assert r.json()["detail"] == "Question not found"
 
@@ -130,6 +130,6 @@ async def test_delete_question_500(client, questions_repo):
 
     questions_repo._del_one = _boom
 
-    r = await client.delete("/questions/10")
+    r = await client.delete("/api/v1/questions/10")
     assert r.status_code == 500
     assert r.json()["detail"] == "Internal Server Error"
